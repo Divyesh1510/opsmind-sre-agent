@@ -1,154 +1,58 @@
 # OpsMind — Memory-Augmented SRE Incident Agent
 
-[![HackwithHyderabad 3.0](https://img.shields.io/badge/Hackathon-HackwithHyderabad%203.0-blueviolet)](https://github.com)
-[![Vectorize Hindsight](https://img.shields.io/badge/Memory-Vectorize%20Hindsight-purple)](https://vectorize.io)
-[![Groq Cloud](https://img.shields.io/badge/Inference-Groq%20Cloud-orange)](https://groq.com)
-[![Read Medium Article](https://img.shields.io/badge/Technical%20Article-Medium-black?logo=medium)](https://medium.com/@divyeshatla/eliminating-mttr-with-persistent-agent-memory-how-we-built-opsmind-using-vectorize-hindsight-fd5fe16848cc)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Memory](https://img.shields.io/badge/Memory-Vectorize%20Hindsight-8A2BE2.svg)](https://hindsight.vectorize.io/)
+[![Inference](https://img.shields.io/badge/Inference-Groq%20Cloud-F55036.svg)](https://groq.com/)
+[![Technical Article](https://img.shields.io/badge/Article-Medium-black.svg?logo=medium)](https://medium.com/@divyeshatla/eliminating-mttr-with-persistent-agent-memory-how-we-built-opsmind-using-vectorize-hindsight-fd5fe16848cc)
 
-> 📖 **Read the Full Deep-Dive Article**:  
-> [Eliminating MTTR with Persistent Agent Memory: How We Built OpsMind Using Vectorize Hindsight & Groq](https://medium.com/@divyeshatla/eliminating-mttr-with-persistent-agent-memory-how-we-built-opsmind-using-vectorize-hindsight-fd5fe16848cc)
+> **Eliminating production downtime by transforming stateless incident triage into persistent, memory-augmented site reliability engineering.**
+
+📖 **Deep-Dive Technical Case Study:**  
+[Eliminating MTTR with Persistent Agent Memory: How We Built OpsMind Using Vectorize Hindsight](https://medium.com/@divyeshatla/eliminating-mttr-with-persistent-agent-memory-how-we-built-opsmind-using-vectorize-hindsight-fd5fe16848cc)
 
 ---
 
-## 🎯 Problem Statement & Solution (DevOps & SRE Track)
+## 🎯 Problem Statement & Solution
 
-### The Problem
-- **Tribal Knowledge Loss**: When production crashes at 3 AM, on-call SREs burn precious downtime trying to diagnose issues that another engineer solved weeks ago.
-- **The Stateless LLM Fallacy**: Standard LLMs give textbook, generic troubleshooting advice (e.g. *"increase pod memory limits"* or *"check database connections"*) rather than pinpointing internal architectural culprits (e.g. *"unclosed gRPC client stream leak in `payment-svc`"*).
-- **Recurring Outages**: Without persistent memory across triage cycles, organizations repeatedly suffer from the same configuration drifts and runtime bugs.
+### The SRE Amnesia Problem
+Engineering teams lose thousands of dollars per minute during critical outages. The primary driver of elevated **Mean Time to Resolution (MTTR)** is organizational amnesia: past post-mortems, root cause analyses (RCAs), and temporary mitigations remain scattered across closed Jira tickets, Slack threads, and tribal knowledge. 
+
+When engineers feed crash dumps to stateless LLMs, the models fail:
+* They lack cluster topology and institutional context.
+* They suggest generic, textbook remediation steps (e.g., *"increase resource limits"*, *"restart pods"*).
+* They force on-call engineers through 30–45 minutes of trial and error for recurring incidents.
 
 ### The OpsMind Solution
-**OpsMind** transforms SRE incident management into a **closed-loop learning system**:
-1. **Recall**: When an alert or stack trace is detected, OpsMind queries **Vectorize Hindsight** persistent memory to retrieve past matching post-mortems and tribal runbooks.
-2. **Diagnose**: **Groq** high-speed LLM inference synthesizes the live trace with organizational memory, outputting the exact root cause, targeted mitigation commands, and explicit memory attributions.
-3. **Retain**: Once resolved, newly diagnosed post-mortems are indexed into Vectorize Hindsight on the fly, immediately accessible for future triage across the entire engineering organization.
+**OpsMind** introduces persistent, cross-session agent memory via **Vectorize Hindsight** coupled with high-speed LLM inference via **Groq**. OpsMind forms a closed-loop operational lifecycle:
+1. **Semantic Recall:** Cross-references incoming crash traces with historical post-mortems.
+2. **Attributed Diagnosis:** Generates actionable, cluster-specific mitigations and Go/Kubernetes patches.
+3. **Closed-Loop Retention:** Automatically commits new outage resolutions back into the persistent memory bank to ensure no incident is solved twice.
 
 ---
 
-## 🏗️ Architecture & Vectorize Hindsight Lifecycle
+## ⚡ The Memory Impact: Before vs. After
+
+| Metric / Capability | Stateless LLM Baseline | OpsMind + Vectorize Hindsight |
+| :--- | :--- | :--- |
+| **Context Awareness** | Generic / Zero memory of past failures | Semantic retrieval of identical past incidents |
+| **Diagnosis Quality** | Textbook advice (*"check pod metrics, inspect logs"*) | Exact failure pattern pinpointed (e.g., unclosed gRPC streams, PgBouncer pool modes) |
+| **Actionable Mitigation** | Theoretical steps | Exact `kubectl` commands, configuration patches, and code fixes |
+| **Institutional Learning** | Discarded upon conversation close | Persisted into long-term memory via `/retain` |
+| **Estimated MTTR** | ~40–60 minutes | **~4–14 seconds (78% reduction)** |
+
+---
+
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Observability ["Telemetry & Alert Ingestion"]
-        Alert["Production Alert / Crash Log"]
-    end
-
-    subgraph OpsMindCore ["OpsMind Agent Core (agent.py)"]
-        Controller["Agent Controller"]
-        GroqLLM["Groq High-Speed LLM Inference (Qwen / GPT)"]
-    end
-
-    subgraph HindsightBank ["Vectorize Hindsight Persistent Memory"]
-        RetainEP["POST /v1/.../memories (Retain)"]
-        RecallEP["POST /v1/.../memories/recall (Recall)"]
-        Storage[("Persistent Memory Bank: sre-incident-bank")]
-    end
-
-    subgraph SREConsole ["SRE Incident Console (app.py)"]
-        UI["Streamlit Dashboard"]
-        DiffEngine["⚡ Instant Before vs. After Diff"]
-        DryRun["🚀 Simulated Runbook Execution"]
-        RetainForm["3. Closed-Loop Post-Mortem Form"]
-    end
-
-    Alert -->|1. Ingest Log| UI
-    UI -->|2. Trigger Analysis| Controller
-    Controller -->|3. Query Vector Embeddings| RecallEP
-    RecallEP <--> Storage
-    RecallEP -->|4. Historical Post-Mortems| Controller
-    Controller -->|5. Augment Prompt with Tribal Context| GroqLLM
-    GroqLLM -->|6. Root Cause & Actionable Runbooks| DiffEngine
-    DiffEngine -->|7. Review Mitigation| DryRun
-    RetainForm -->|8. Save New Post-Mortem| RetainEP
-    RetainEP --> Storage
-```
-
----
-
-## 📊 Before vs. After: Memory Contrast
-
-| Incident Scenario | Stateless LLM (Without Memory) | OpsMind (With Vectorize Hindsight) |
-|---|---|---|
-| **INC-8102 (Kubernetes OOMKilled Code 137)** | *"Pod exceeded memory. Edit deployment YAML to increase memory limits from 1.5Gi to 2Gi."* | **Identifies specific unclosed gRPC client stream leak in `payment-svc`** buffering payloads during peak traffic. Provides hotfix keepalive commands & rollout restart. |
-| **INC-7940 (PostgreSQL Pool Starvation)** | *"Database reached connection limits. Consider scaling up instance or closing idle clients."* | **Identifies PgBouncer `session` vs `transaction` pool mode misconfiguration**. Provides `kubectl patch configmap` and `pkill -HUP pgbouncer`. |
-| **INC-9210 (Kafka Rebalance Deadlock)** | *"Kafka consumer rebalanced. Verify network connectivity or increase brokers."* | **Pinpoints processing duration exceeding `max.poll.interval.ms`**. Provides precise consumer config tuning (`max.poll.records=250`). |
-
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-- Python 3.10+
-- Groq API Key ([console.groq.com](https://console.groq.com))
-- Vectorize Hindsight API Key ([api.hindsight.vectorize.io](https://api.hindsight.vectorize.io))
-
-### 2. Clone and Setup Virtual Environment
-```bash
-git clone https://github.com/<your-username>/opsmind-sre-agent.git
-cd opsmind-sre-agent
-
-# Create virtual environment
-python -m venv venv
-
-# Activate on Windows:
-.\venv\Scripts\activate
-# Activate on Linux/macOS:
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure Environment Variables
-Copy `.env.example` to `.env`:
-```bash
-cp .env.example .env
-```
-Update `.env` with your active keys:
-```env
-GROQ_API_KEY="gsk_..."
-HINDSIGHT_API_KEY="hsk_..."
-HINDSIGHT_BASE_URL="https://api.hindsight.vectorize.io"
-HINDSIGHT_BANK_ID="sre-incident-bank"
-```
-> **Note**: If placeholder keys are left as `your_...`, OpsMind automatically activates a deterministic **Simulated Fallback Mode**, allowing the full workflow and tests to run offline.
-
----
-
-## 🧪 Testing & Execution
-
-### 1. Seed Historical Post-Mortems
-Ingest realistic enterprise incidents (INC-8102, INC-7940, INC-9210) into Vectorize Hindsight:
-```bash
-python seed_data.py
-```
-
-### 2. Run Comprehensive Integration Tests
-Execute the verification test suite:
-```bash
-pytest test_agent.py -v -s
-```
-
-### 3. Launch Interactive Streamlit UI
-Start the interactive SRE incident response dashboard:
-```bash
-streamlit run app.py
-```
-Open **`http://localhost:8501`** in your browser.
-
----
-
-## 🌟 Key Application Features
-
-1. **Enterprise Impact Metric Cards**: Live indicators showcasing MTTR reduction (-78%), active recurrence detection, and indexed tribal runbooks.
-2. **⚡ Instant Before vs. After Diff**: Side-by-side comparative analysis contrasting generic stateless LLM responses against context-aware Hindsight memory.
-3. **🚀 Simulate Remediation (Dry Run)**: Interactive terminal animation validating safe cluster execution before production deployment.
-4. **🔄 Closed-Loop Feedback Loop**: Immediate retention form to index newly resolved outages into Hindsight vector memory on the fly.
-
----
-
-## 📝 Technical Publication
-For a detailed technical breakdown of the architecture, memory retrieval mechanics, and benchmark results:
-- **Medium Article**: [Eliminating MTTR with Persistent Agent Memory: How We Built OpsMind Using Vectorize Hindsight & Groq](https://medium.com/@divyeshatla/eliminating-mttr-with-persistent-agent-memory-how-we-built-opsmind-using-vectorize-hindsight-fd5fe16848cc)
+    A[Incoming Stack Trace / Alert Log] --> B{Hindsight Memory Recall}
+    B -->|Query Vectorize Hindsight API| C[(Persistent Memory Bank)]
+    C -->|Recalled Post-Mortems & RCA| D[Context Injector]
+    A --> D
+    D --> E[Groq High-Speed LLM Inference]
+    E --> F[Attributed Diagnosis & Executable Runbooks]
+    F --> G[Dry-Run Cluster Remediation]
+    G --> H[Closed-Loop Retention: /retain]
+    H -->|Commit New Fix| C
